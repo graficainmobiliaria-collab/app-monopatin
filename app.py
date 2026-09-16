@@ -1,16 +1,54 @@
 import streamlit as st
 import pandas as pd
+import datetime
+import streamlit.components.v1 as components
 from data_analyzer import get_performance_stats, get_pending_routes
 from route_calculator import calculate_route_distance
 
-st.set_page_config(page_title="Monopatin Route Planner", page_icon="🛴", layout="centered")
+# Configuración inicial de la página (debe ser el primer comando)
+st.set_page_config(
+    page_title="Rutas Monopatín", 
+    page_icon="🛴", 
+    layout="centered",
+    initial_sidebar_state="collapsed" # Oculta la barra lateral en celulares al inicio
+)
+
+# --- CSS PERSONALIZADO ---
+st.markdown("""
+<style>
+    /* Botones principales con diseño de app móvil */
+    div.stButton > button:first-child {
+        background-color: #00C853; /* Verde eléctrico */
+        color: white;
+        border-radius: 12px;
+        border: none;
+        padding: 12px 24px;
+        font-weight: bold;
+        width: 100%; /* Botones anchos para tocar fácil en celular */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #00E676;
+        transform: translateY(-2px);
+    }
+    /* Tarjetas para las métricas */
+    div[data-testid="metric-container"] {
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 2px 4px 10px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    /* Títulos más limpios */
+    h1 {
+        color: #00C853;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🛴 Monopatín Route Planner")
-st.markdown("Calcula si tu monopatín tiene suficiente batería para los relevamientos del día.")
-
-import datetime
-
-import streamlit.components.v1 as components
+st.markdown("Calcula la viabilidad de tu ruta y la autonomía de batería de forma inteligente.")
 
 # --- SIDEBAR CONFIGURACIÓN ---
 st.sidebar.header("⚙️ Configuración")
