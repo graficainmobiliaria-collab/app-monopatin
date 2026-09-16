@@ -140,9 +140,19 @@ with tab_planificador:
                         elif bateria_necesaria > 90:
                             st.warning(f"⚠️ Alerta: El viaje consumirá el {bateria_necesaria:.1f}% de la batería. Llegarías con un {bateria_restante:.1f}%, entrando en la zona de pérdida de prestaciones (< 10%). ¡Te recomendamos cargar en el camino!")
                         elif bateria_necesaria > 80:
-                            st.info(f"ℹ️ Viaje viable, pero justo. Llegarías con un {bateria_restante:.1f}%. Usar modo Eco para asegurar no caer por debajo del 10%.")
+                            st.info(f"ℹ️ Viaje viable, pero justo. Llegarías con un {bateria_restante:.1f}%.")
                         else:
                             st.success(f"✅ Ruta viable. Llegarías cómodamente con un {bateria_restante:.1f}% de batería (manteniendo el rendimiento óptimo).")
+                            
+                        # Sugerencia inteligente de modo de manejo
+                        st.markdown("---")
+                        st.subheader("💡 Modo de Manejo Sugerido")
+                        if bateria_necesaria > 80:
+                            st.info("**Modo Normal (ECO) 🐢**\n\nComo la distancia es larga y consumirás más del 80% de la batería, te sugerimos ir en Modo Normal (hasta 25 km/h) para maximizar la autonomía y asegurar que no caigas por debajo del 10% de carga.")
+                        elif bateria_necesaria > 40:
+                            st.info("**Modo Mixto ⚖️**\n\nTenés buen margen de batería. Podés alternar entre Normal y Sport según el tráfico, sin preocuparte por quedarte a pie.")
+                        else:
+                            st.success("**Modo Sport 🏎️**\n\n¡Ruta corta! Consumirás menos del 40% de tu batería, así que podés ir a máxima velocidad en Modo Sport todo el trayecto sin problemas de autonomía.")
                             
                     else:
                         st.error(f"Error calculando la ruta con el mapa: {res_dist['error']}")
