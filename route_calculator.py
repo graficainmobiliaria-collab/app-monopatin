@@ -27,8 +27,10 @@ def calculate_route_distance(addresses):
         time.sleep(1) # Polite delay
         
     coords_str = ';'.join([f'{c[0]},{c[1]}' for c in coords])
-    # Pedir geometry en formato geojson para poder dibujarla en el mapa
-    osrm_url = f'http://router.project-osrm.org/route/v1/driving/{coords_str}?overview=full&geometries=geojson'
+    
+    # ACÁ ESTÁ LA MAGIA: Cambiamos "driving" por "bike"
+    # Esto fuerza al mapa a priorizar la red de bicisendas y ciclovías de la ciudad.
+    osrm_url = f'http://router.project-osrm.org/route/v1/bike/{coords_str}?overview=full&geometries=geojson'
     
     try:
         req = urllib.request.Request(osrm_url, headers={'User-Agent': 'MonopatinApp/1.0'})
