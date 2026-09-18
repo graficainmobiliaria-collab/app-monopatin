@@ -173,7 +173,7 @@ with tab_planificador:
                             else:
                                 folium.Marker(wp, icon=folium.Icon(color='blue', icon='info-sign'), tooltip=f"Parada {idx}").add_to(m)
                                 
-                        st_folium(m, width=700, height=500)
+                       components.html(m._repr_html_(), height=520)
                         
                     else:
                         st.error(f"Error calculando la ruta con el mapa: {res_dist['error']}")
