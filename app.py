@@ -154,6 +154,27 @@ with tab_planificador:
                         else:
                             st.success("**Modo Sport 🏎️**\n\n¡Ruta corta! Consumirás menos del 40% de tu batería, así que podés ir a máxima velocidad en Modo Sport todo el trayecto sin problemas de autonomía.")
                             
+                        # Dibujar mapa interactivo
+                        st.markdown("---")
+                        st.subheader("🗺️ Mapa de la Ruta")
+                        import folium
+                        from streamlit_folium import st_folium
+                        
+                        # Crear el mapa centrado en el primer punto
+                        m = folium.Map(location=res_dist['waypoints'][0], zoom_start=13)
+                        
+                        # Dibujar el recorrido
+                        folium.PolyLine(res_dist['route_path'], color="#00C853", weight=5, opacity=0.8).add_to(m)
+                        
+                        # Añadir pines de las paradas
+                        for idx, wp in enumerate(res_dist['waypoints']):
+                            if idx == 0 or idx == len(res_dist['waypoints']) - 1:
+                                folium.Marker(wp, icon=folium.Icon(color='green', icon='home'), tooltip="Origen/Fin").add_to(m)
+                            else:
+                                folium.Marker(wp, icon=folium.Icon(color='blue', icon='info-sign'), tooltip=f"Parada {idx}").add_to(m)
+                                
+                        st_folium(m, width=700, height=500)
+                        
                     else:
                         st.error(f"Error calculando la ruta con el mapa: {res_dist['error']}")
                 else:
