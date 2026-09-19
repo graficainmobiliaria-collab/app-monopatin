@@ -10,20 +10,21 @@ st.set_page_config(
     page_title="Rutas Monopatín", 
     page_icon="🛴", 
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed" # Oculta la barra lateral en celulares al inicio
 )
 
 # --- CSS PERSONALIZADO ---
 st.markdown("""
 <style>
+    /* Botones principales con diseño de app móvil */
     div.stButton > button:first-child {
-        background-color: #00C853; 
+        background-color: #00C853; /* Verde eléctrico */
         color: white;
         border-radius: 12px;
         border: none;
         padding: 12px 24px;
         font-weight: bold;
-        width: 100%; 
+        width: 100%; /* Botones anchos para tocar fácil en celular */
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
     }
@@ -31,6 +32,7 @@ st.markdown("""
         background-color: #00E676;
         transform: translateY(-2px);
     }
+    /* Tarjetas para las métricas */
     div[data-testid="metric-container"] {
         border: 1px solid rgba(128, 128, 128, 0.2);
         border-radius: 15px;
@@ -38,6 +40,7 @@ st.markdown("""
         box-shadow: 2px 4px 10px rgba(0,0,0,0.05);
         text-align: center;
     }
+    /* Títulos más limpios */
     h1 {
         color: #00C853;
     }
@@ -45,7 +48,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🛴 Monopatín Route Planner")
-st.markdown("Calcula la viabilidad de tu ruta y la autonomía de batería con inteligencia de desvíos.")
+st.markdown("Calcula la viabilidad de tu ruta y la autonomía de batería de forma inteligente.")
 
 # --- SIDEBAR CONFIGURACIÓN ---
 st.sidebar.header("⚙️ Configuración")
@@ -53,19 +56,17 @@ historial_url = st.sidebar.text_input("URL Planilla Historial", value="https://d
 relevamientos_url = st.sidebar.text_input("URL Planilla Relevamientos", value="https://docs.google.com/spreadsheets/d/e/2PACX-1vTAi4PDT9o6QukcQwzEOr8H7CeUfoJxh6notUWT3IaYH5QGsMXv6yoLIJ6q0C9KBL0HSfwbeZyr0yZq/pubhtml?gid=1001&single=true")
 relevamientos_sheet = st.sidebar.text_input("Nombre de la Pestaña", value="relevamientos soto")
 origen = st.sidebar.text_input("📍 Punto de Origen/Fin", value="Miró 531, CABA, Argentina")
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🛡️ Ajuste de Realidad")
-margen_seguridad = st.sidebar.slider("Margen de Desvío Urbano (%)", min_value=0, max_value=100, value=30, help="Agrega un porcentaje extra a la distancia del mapa para compensar semáforos, calles cortadas y atajos en la vida real.")
+centro_carga = "Jorge Newbery 2564, CABA, Argentina" # Centro alternativo de carga
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📅 Filtro de Viajes")
+margen_desvio = st.sidebar.slider("Margen de Desvío Urbano (%)", min_value=0, max_value=60, value=28, step=1)
 fecha_filtro = st.sidebar.date_input("Fecha a calcular", value=datetime.date(2026, 9, 16))
 hora_inicio = st.sidebar.time_input("Hora desde", value=datetime.time(8, 0))
 hora_fin = st.sidebar.time_input("Hora hasta", value=datetime.time(15, 0))
 
 # --- PESTAÑAS (TABS) ---
-tab_planificador, tab_relevamientos, tab_historial = st.tabs(["🗺️ Planificador", "📝 Relevamientos", "🔋 Historial"])
+tab_planificador, tab_relevamientos, tab_historial = st.tabs(["🗺️ Planificador", "📝 Relevamientos (Sheets)", "🔋 Historial (Sheets)"])
 
 with tab_planificador:
     # --- PASO 1: RENDIMIENTO ---
@@ -79,15 +80,16 @@ with tab_planificador:
                 st.session_state['efficiency'] = res['efficiency_km_per_percent']
                 st.success("Historial cargado correctamente!")
                 
+                # Cálculo de autonomía útil (reservando el último 10%)
                 autonomia_util = res['max_range_km'] * 0.9
                 st.session_state['autonomia_util'] = autonomia_util
                 
                 col1, col2, col3 = st.columns(3)
-                col1.metric("Autonomía Max", f"{res['max_range_km']:.1f} km")
-                col2.metric("Autonomía Útil (90%)", f"{autonomia_util:.1f} km")
+                col1.metric("Autonomía Max (100%)", f"{res['max_range_km']:.1f} km")
+                col2.metric("Autonomía Útil (90%)", f"{autonomia_util:.1f} km", help="Rango óptimo antes de que el monopatín pierda rendimiento (al bajar del 10% de batería).")
                 col3.metric("Consumo", f"{res['efficiency_km_per_percent']:.3f} km/%")
                 
-                st.caption(f"📊 Se analizaron {res['trips_analyzed']} viajes válidos.")
+                st.caption(f"📊 Se analizaron {res['trips_analyzed']} viajes válidos. Se descartaron automáticamente {res['trips_discarded']} registros anómalos o extremos.")
             else:
                 st.error(f"Error cargando historial: {res['error']}")
     
@@ -95,10 +97,11 @@ with tab_planificador:
     st.header("🗺️ 2. Planificar Ruta")
     
     if 'max_range' not in st.session_state:
-        st.info("Primero carga el rendimiento histórico para calcular la viabilidad.")
+        st.info("Primero carga el rendimiento histórico para poder calcular la viabilidad.")
     else:
         if st.button("Cargar Relevamientos y Calcular Ruta"):
             with st.spinner("Leyendo relevamientos y calculando ruta..."):
+                # Convertir a string para pasarlo
                 fecha_str = fecha_filtro.strftime('%Y-%m-%d')
                 hora_inicio_str = hora_inicio.strftime('%H:%M')
                 hora_fin_str = hora_fin.strftime('%H:%M')
@@ -117,70 +120,105 @@ with tab_planificador:
                     for i, d in enumerate(direcciones):
                         st.write(f"{i+1}. {d}")
                     
+                    # Armar ruta completa
                     ruta_completa = [origen] + direcciones + [origen]
+                    
+                    # Calcular distancias
                     res_dist = calculate_route_distance(ruta_completa)
                     
                     if res_dist['success']:
-                        dist_teorica = res_dist['distance_km']
-                        # APLICAMOS EL FACTOR DE DESVÍO DE LA VIDA REAL
-                        dist_real = dist_teorica * (1 + (margen_seguridad / 100))
-                        
+                        dist = res_dist['distance_km']
                         st.write("---")
-                        st.subheader("🏁 Resultado de Viabilidad (Ajustado)")
+                        st.subheader("🏁 Resultado de Viabilidad")
+                        st.metric("Distancia Total de la Ruta", f"{dist:.1f} km")
                         
-                        colA, colB = st.columns(2)
-                        colA.metric("Distancia Mapa (Teórica)", f"{dist_teorica:.1f} km")
-                        colB.metric(f"Distancia Real (+{margen_seguridad}%)", f"{dist_real:.1f} km")
-                        
-                        bateria_necesaria = dist_real / st.session_state['efficiency']
+                        bateria_necesaria = dist / st.session_state['efficiency']
                         st.metric("Batería Estimada a Consumir", f"{bateria_necesaria:.1f} %")
                         
                         bateria_restante = 100 - bateria_necesaria
                         
                         if bateria_necesaria > 100:
-                            st.error("🚨 Imposible realizar la ruta sin cargar el monopatín. ¡Supera el 100%!")
-                        elif bateria_necesaria > 90:
-                            st.warning(f"⚠️ Alerta: Consumirá {bateria_necesaria:.1f}%. Llegás con {bateria_restante:.1f}% (zona de pérdida de prestaciones).")
-                        elif bateria_necesaria > 80:
-                            st.info(f"ℹ️ Viaje viable, pero justo. Llegarías con {bateria_restante:.1f}%.")
-                        else:
-                            st.success(f"✅ Ruta viable. Llegarías con un {bateria_restante:.1f}% de batería.")
+                            st.error("❌ Imposible realizar la ruta de una sola vez sin cargar el monopatín.")
+                            # --- PROTOCOLO DE RECARGA ---
+                            st.markdown("---")
+                            st.subheader("🔌 Activando Protocolo de Recarga")
+                            st.info(f"El viaje fue dividido en 2 tramos usando el centro de carga en: **{centro_carga}**")
                             
+                            mitad = len(direcciones) // 2
+                            ruta_tramo1 = [origen] + direcciones[:mitad] + [centro_carga]
+                            ruta_tramo2 = [centro_carga] + direcciones[mitad:] + [origen]
+                            
+                            res_t1 = calculate_route_distance(ruta_tramo1)
+                            res_t2 = calculate_route_distance(ruta_tramo2)
+                            
+                            if res_t1['success'] and res_t2['success']:
+                                bat1 = res_t1['distance_km'] / st.session_state['efficiency']
+                                bat2 = res_t2['distance_km'] / st.session_state['efficiency']
+                                
+                                col_t1, col_t2 = st.columns(2)
+                                col_t1.warning(f"**Tramo 1 (Hacia Carga):**\n\n{res_t1['distance_km']:.1f} km\n\nConsumo: {bat1:.1f}%")
+                                col_t2.success(f"**Tramo 2 (A Casa):**\n\n{res_t2['distance_km']:.1f} km\n\nConsumo: {bat2:.1f}%")
+                                
+                                st.write("✅ Con esta división, ambos tramos son realizables.")
+                                
+                                # Sobrescribir los datos del mapa para dibujar la ruta dividida
+                                res_dist['waypoints'] = res_t1['waypoints'] + res_t2['waypoints']
+                                res_dist['route_path'] = res_t1['route_path'] + res_t2['route_path']
+                                res_dist['is_split'] = True
+                            
+                        elif bateria_necesaria > 90:
+                            st.warning(f"⚠️ Alerta: El viaje consumirá el {bateria_necesaria:.1f}% de la batería. Llegarías con un {bateria_restante:.1f}%, entrando en la zona de pérdida de prestaciones (< 10%). ¡Te recomendamos cargar en el camino!")
+                        elif bateria_necesaria > 80:
+                            st.info(f"ℹ️ Viaje viable, pero justo. Llegarías con un {bateria_restante:.1f}%.")
+                        else:
+                            st.success(f"✅ Ruta viable. Llegarías cómodamente con un {bateria_restante:.1f}% de batería (manteniendo el rendimiento óptimo).")
+                            
+                        # Sugerencia inteligente de modo de manejo
                         st.markdown("---")
                         st.subheader("💡 Modo de Manejo Sugerido")
                         if bateria_necesaria > 80:
-                            st.info("**Modo Normal (ECO) 🐢**\nPara asegurar no caer por debajo del 10%.")
+                            st.info("**Modo Normal (ECO) 🐢**\n\nComo la distancia es larga y consumirás más del 80% de la batería, te sugerimos ir en Modo Normal (hasta 25 km/h) para maximizar la autonomía y asegurar que no caigas por debajo del 10% de carga.")
                         elif bateria_necesaria > 40:
-                            st.info("**Modo Mixto ⚖️**\nAlterná entre Normal y Sport según el tráfico.")
+                            st.info("**Modo Mixto ⚖️**\n\nTenés buen margen de batería. Podés alternar entre Normal y Sport según el tráfico, sin preocuparte por quedarte a pie.")
                         else:
-                            st.success("**Modo Sport 🏎️**\n¡Ruta corta! Andá a fondo sin problemas.")
+                            st.success("**Modo Sport 🏎️**\n\n¡Ruta corta! Consumirás menos del 40% de tu batería, así que podés ir a máxima velocidad en Modo Sport todo el trayecto sin problemas de autonomía.")
                             
+                        # Dibujar mapa interactivo
                         st.markdown("---")
-                        st.subheader("🗺️ Mapa de la Ruta Teórica")
+                        st.subheader("🗺️ Mapa de la Ruta")
                         import folium
+                        from streamlit_folium import st_folium
                         
+                        # Crear el mapa centrado en el primer punto
                         m = folium.Map(location=res_dist['waypoints'][0], zoom_start=13)
+                        
+                        # Dibujar el recorrido
                         folium.PolyLine(res_dist['route_path'], color="#00C853", weight=5, opacity=0.8).add_to(m)
                         
+                        # Añadir pines de las paradas
                         for idx, wp in enumerate(res_dist['waypoints']):
                             if idx == 0 or idx == len(res_dist['waypoints']) - 1:
                                 folium.Marker(wp, icon=folium.Icon(color='green', icon='home'), tooltip="Origen/Fin").add_to(m)
                             else:
                                 folium.Marker(wp, icon=folium.Icon(color='blue', icon='info-sign'), tooltip=f"Parada {idx}").add_to(m)
                                 
-                        components.html(m._repr_html_(), height=520)
+                        st_folium(m, width=700, height=500)
                         
                     else:
-                        st.error(f"Error calculando ruta: {res_dist['error']}")
+                        st.error(f"Error calculando la ruta con el mapa: {res_dist['error']}")
                 else:
                     st.error(f"Error cargando relevamientos: {res_rutas['error']}")
 
 def format_iframe_url(url):
+    # Si ya es un enlace publicado en la web (pubhtml), lo dejamos como está o le aseguramos widget=true
     if '/pubhtml' in url:
         if 'widget=true' not in url:
             separator = '&' if '?' in url else '?'
             return f"{url}{separator}widget=true&headers=false"
         return url
+        
+    # Google bloquea htmlembed por seguridad en algunos navegadores si no está publicado en la web.
+    # La solución oficial es usar el editor normal pero con rm=minimal (Render Mode = Minimal)
     if 'rm=minimal' not in url:
         if '?' in url:
             url = url.replace('?', '?rm=minimal&')
@@ -188,12 +226,15 @@ def format_iframe_url(url):
             url = url.replace('#', '?rm=minimal#')
         else:
             url = url + '?rm=minimal'
+            
     return url
 
 with tab_relevamientos:
-    st.info("Desde aquí podés ver y editar tu planilla de relevamientos.")
-    components.iframe(format_iframe_url(relevamientos_url), height=700, scrolling=True)
+    st.info("Desde aquí podés ver y editar tu planilla de relevamientos directamente.")
+    iframe_rel = format_iframe_url(relevamientos_url)
+    components.iframe(iframe_rel, height=700, scrolling=True)
 
 with tab_historial:
-    st.info("Desde aquí podés ver y editar tu historial.")
-    components.iframe(format_iframe_url(historial_url), height=700, scrolling=True)
+    st.info("Desde aquí podés ver y editar tu historial de viajes y consumo.")
+    iframe_hist = format_iframe_url(historial_url)
+    components.iframe(iframe_hist, height=700, scrolling=True)
