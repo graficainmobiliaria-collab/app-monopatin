@@ -127,12 +127,15 @@ with tab_planificador:
                     res_dist = calculate_route_distance(ruta_completa)
                     
                     if res_dist['success']:
-                        dist = res_dist['distance_km']
-                        st.write("---")
-                        st.subheader("🏁 Resultado de Viabilidad")
-                        st.metric("Distancia Total de la Ruta", f"{dist:.1f} km")
+                        dist_teorica = res_dist['distance_km']
+                        dist_real = dist_teorica * (1 + margen_desvio / 100)
                         
-                        bateria_necesaria = dist / st.session_state['efficiency']
+                        st.write("---")
+                        st.subheader("📊 Resultado de Viabilidad")
+                        st.metric("Distancia Teórica (Mapa)", f"{dist_teorica:.1f} km")
+                        st.metric(f"Distancia Real Estimada (+{margen_desvio}%)", f"{dist_real:.1f} km")
+                        
+                        bateria_necesaria = dist_real / st.session_state['efficiency']
                         st.metric("Batería Estimada a Consumir", f"{bateria_necesaria:.1f} %")
                         
                         bateria_restante = 100 - bateria_necesaria
