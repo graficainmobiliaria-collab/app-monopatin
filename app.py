@@ -57,6 +57,7 @@ relevamientos_url = st.sidebar.text_input("URL Planilla Relevamientos", value="h
 relevamientos_sheet = st.sidebar.text_input("Nombre de la Pestaña", value="relevamientos soto")
 origen = st.sidebar.text_input("📍 Punto de Origen/Fin", value="Miró 531, CABA, Argentina")
 centro_carga = "Jorge Newbery 2564, CABA, Argentina" # Centro alternativo de carga
+horas_carga_completa = st.sidebar.number_input("⏳ Tiempo carga 0-100% (hs)", value=5.0, step=0.5, help="Horas que tarda en cargar por completo")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📅 Filtro de Viajes")
@@ -155,14 +156,36 @@ with tab_planificador:
                             res_t2 = calculate_route_distance(ruta_tramo2)
                             
                             if res_t1['success'] and res_t2['success']:
-                                bat1 = res_t1['distance_km'] / st.session_state['efficiency']
-                                bat2 = res_t2['distance_km'] / st.session_state['efficiency']
+                                dist_t1_real = res_t1['distance_km'] * (1 + margen_desvio / 100)
+                                dist_t2_real = res_t2['distance_km'] * (1 + margen_desvio / 100)
+                                bat1 = dist_t1_real / st.session_state['efficiency']
+                                bat2 = dist_t2_real / st.session_state['efficiency']
+                                
+                                paradas_t1 = "\n".join([f"- {d}" for d in direcciones[:mitad]])
+                                if not paradas_t1: paradas_t1 = "- (Directo a centro de carga)"
+                                
+                                paradas_t2 = "\n".join([f"- {d}" for d in direcciones[mitad:]])
+                                if not paradas_t2: paradas_t2 = "- (Directo a origen)"
                                 
                                 col_t1, col_t2 = st.columns(2)
-                                col_t1.warning(f"**Tramo 1 (Hacia Carga):**\n\n{res_t1['distance_km']:.1f} km\n\nConsumo: {bat1:.1f}%")
-                                col_t2.success(f"**Tramo 2 (A Casa):**\n\n{res_t2['distance_km']:.1f} km\n\nConsumo: {bat2:.1f}%")
+                                col_t1.warning(f"**Tramo 1 (Hacia Carga):**\n\n{dist_t1_real:.1f} km (Reales)\n\nConsumo: {bat1:.1f}%\n\n**Paradas antes de cargar:**\n{paradas_t1}")
+                                col_t2.success(f"**Tramo 2 (A Casa):**\n\n{dist_t2_real:.1f} km (Reales)\n\nConsumo: {bat2:.1f}%\n\n**Paradas después de cargar:**\n{paradas_t2}")
                                 
-                                st.write("✅ Con esta división, ambos tramos son realizables.")
+                                # Calcular tiempo de espera de forma inteligente (no al 100%)
+                                bateria_al_llegar = 100 - bat1
+                                # Necesitamos la batería del tramo 2 más un 10% de margen de seguridad para llegar a casa
+                                bateria_objetivo = bat2 + 10
+                                
+                                porcentaje_a_cargar = bateria_objetivo - bateria_al_llegar
+                                if porcentaje_a_cargar < 0: porcentaje_a_cargar = 0
+                                
+                                tiempo_recarga_horas = (porcentaje_a_cargar / 100) * horas_carga_completa
+                                horas = int(tiempo_recarga_horas)
+                                minutos = int((tiempo_recarga_horas - horas) * 60)
+                                tiempo_texto = f"{horas}h {minutos}m" if horas > 0 else f"{minutos} minutos"
+                                
+                                st.info(f"⏳ **Tiempo de Agenda:** Llegarás a recargar con **{bateria_al_llegar:.1f}%**. Para hacer el Tramo 2 y llegar a casa con reserva, solo necesitás cargar hasta el **{bateria_objetivo:.1f}%**.\n\n👉 Tiempo de carga estimado: **{tiempo_texto}**.")
+                                st.write("✅ Con esta recarga parcial inteligente, ahorrás tiempo y garantizás la vuelta.")
                                 
                                 # Sobrescribir los datos del mapa para dibujar la ruta dividida
                                 res_dist['waypoints'] = res_t1['waypoints'] + res_t2['waypoints']
