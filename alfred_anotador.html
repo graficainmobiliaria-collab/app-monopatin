@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alfred: Anotador Personal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #0b0f19;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h1 { color: #4cc9f0; margin-bottom: 5px; }
+        p { color: #a0aabf; margin-bottom: 40px; }
+        
+        #micButton {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background-color: #f72585;
+            border: none;
+            box-shadow: 0 10px 30px rgba(247, 37, 133, 0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            transition: all 0.3s ease;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        #micButton.recording {
+            background-color: #d90429;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 4, 41, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 30px rgba(217, 4, 41, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 4, 41, 0); }
+        }
+        
+        #status {
+            margin-top: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #4cc9f0;
+            min-height: 24px;
+        }
+        
+        #transcript {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+            min-height: 100px;
+            background-color: #1a1f2e;
+            border-radius: 15px;
+            padding: 15px;
+            color: #fff;
+            border: 1px solid #2a3143;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎙️ Alfred</h1>
+    <p>Anotador Personal de Ideas</p>
+
+    <button id="micButton">🎤</button>
+    <div id="status">Toca el botón para empezar...</div>
+    <div id="transcript">Respirá tranquilo. Cuando termines la idea completa, volvé a tocar el botón para enviarla.</div>
+
+    <script>
+        const micButton = document.getElementById('micButton');
+        const statusDiv = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
+        
+        const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSevPJI23-ph4o3ec54WkzBzk_oOaNvwgyKELSHwF15SCeAjYg/formResponse";
+        const entryId = "entry.307536414";
+
+        let recognizing = false;
+        let recognition;
+        let final_transcript = '';
+
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            statusDiv.innerHTML = "❌ Tu navegador no soporta el micrófono.";
+            statusDiv.style.color = "#d90429";
+        } else {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            
+            // LA CLAVE: continuous en true hace que no se corte al respirar
+            recognition.continuous = true; 
+            recognition.interimResults = true;
+            recognition.lang = 'es-AR';
+
+            recognition.onstart = function() {
+                recognizing = true;
+                final_transcript = '';
+                micButton.classList.add('recording');
+                statusDiv.innerHTML = "Escuchando... (tocá de nuevo para finalizar)";
+                transcriptDiv.innerHTML = "";
+            };
+
+            recognition.onresult = function(event) {
+                let interim_transcript = '';
+                final_transcript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        final_transcript += event.results[i][0].transcript;
+                    } else {
+                        interim_transcript += event.results[i][0].transcript;
+                    }
+                }
+                
+                transcriptDiv.innerHTML = final_transcript + '<i style="color:gray">' + interim_transcript + '</i>';
+            };
+
+            recognition.onerror = function(event) {
+                // Ignore the error if the user hasn't spoken anything and we stop it
+                if (event.error === 'no-speech') return;
+                statusDiv.innerHTML = "❌ Error: " + event.error;
+            };
+
+            recognition.onend = function() {
+                recognizing = false;
+                micButton.classList.remove('recording');
+                
+                if (final_transcript.trim() !== '') {
+                    enviarIdea(final_transcript);
+                } else {
+                    statusDiv.innerHTML = "✅ Toca para nueva idea.";
+                }
+            };
+
+            micButton.onclick = function() {
+                if (recognizing) {
+                    // Si ya estaba grabando, lo frenamos y esto dispara el onend para mandar el texto
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            };
+        }
+
+        function enviarIdea(texto) {
+            statusDiv.innerHTML = "⏳ Mandando a la Baticueva...";
+            
+            const formData = new URLSearchParams();
+            formData.append(entryId, texto);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: formData.toString()
+            }).then(() => {
+                statusDiv.innerHTML = "✅ ¡Idea guardada! Toca para otra.";
+            }).catch(err => {
+                statusDiv.innerHTML = "❌ Error guardando.";
+                console.error(err);
+            });
+        }
+    </script>
+</body>
+</html>
